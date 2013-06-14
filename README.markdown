@@ -1,8 +1,8 @@
-# Heroku buildpack: Wordpress on Heroku
+# Heroku buildpack: CodeIgniter on Heroku
 
-### This is a Heroku buildpack for running [Wordpress](http://wordpress.org) on [Heroku](http://heroku.com)
+### This is a Heroku buildpack for running [CodeIgniter](http://http://ellislab.com/codeigniter) on [Heroku](http://heroku.com)
 
-It uses this [Wordpress](http://github.com/mchung/wordpress-on-heroku) project template to bootstrap a highly tuned Wordpress site built on the following stack:
+It uses this [CodeIgniter](http://github.com/joshlarsen/codeigniter-on-heroku) project template to bootstrap a tuned CodeIgniter site built on the following stack:
 
 * `nginx-1.3.11` - Nginx for serving web content.  Built specifically for Heroku.  [See compile options](https://github.com/mchung/heroku-buildpack-wordpress/blob/master/support/package_nginx).
 * `php-5.4.11` - PHP-FPM for process management and APC for caching opcodes.  [See compile options](https://github.com/mchung/heroku-buildpack-wordpress/blob/master/support/package_php).

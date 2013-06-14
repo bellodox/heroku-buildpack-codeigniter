@@ -8,12 +8,12 @@ if [ "$PHP_VERSION" == "" ]; then
 fi
 
 if [ "$AWS_ID" == "" ]; then
-  echo "must set AWS_ID, i.e. export AWS_ID=1BHAJK48DJFMQKZMNV93"
+  echo "must set AWS_ID, i.e. export AWS_ID=AKIAIXRZ24F75UJNXXEQ"
   exit 1
 fi
 
 if [ "$AWS_SECRET" == "" ]; then
-  echo "must set AWS_SECRET, i.e. export AWS_SECRET=fj2jjchebsjksmMJCN387RHNjdnddNfi4jjhshh3"
+  echo "must set AWS_SECRET, i.e. export AWS_SECRET=mwotdHhD3X4nuN8gGkvocdemkk8MzWgvkJlRZzNW"
   exit 1
 fi
 
