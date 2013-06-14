@@ -1,0 +1,74 @@
+#!/bin/sh
+
+set -e
+
+if [ "$PHP_VERSION" == "" ]; then
+  echo "must set PHP_VERSION, i.e PHP_VERSION=5.4.1"
+  exit 1
+fi
+
+if [ "$AWS_ID" == "" ]; then
+  echo "must set AWS_ID, i.e. export AWS_ID=1BHAJK48DJFMQKZMNV93"
+  exit 1
+fi
+
+if [ "$AWS_SECRET" == "" ]; then
+  echo "must set AWS_SECRET, i.e. export AWS_SECRET=fj2jjchebsjksmMJCN387RHNjdnddNfi4jjhshh3"
+  exit 1
+fi
+
+if [ "$S3_BUCKET" == "" ]; then
+  echo "must set S3_BUCKET, i.e. S3_BUCKET=heroku-buildpack-wordpress"
+  exit 1
+fi
+
+basedir="$( cd -P "$( dirname "$0" )" && pwd )"
+
+# make a temp directory
+tempdir="$( mktemp -t php_XXXX )"
+rm -rf $tempdir
+mkdir -p $tempdir
+pushd $tempdir
+
+# download and extract php
+curl -L http://us.php.net/get/php-$PHP_VERSION.tar.bz2/from/www.php.net/mirror -o php.tgz
+tar xzvf php.tgz
+
+# build and package php for heroku
+vulcan build -v -s php-$PHP_VERSION -o $tempdir/php-$PHP_VERSION-with-fpm-heroku.tar.gz -p /app/vendor/php -c \
+  "./configure  --prefix=/app/vendor/php \
+                --with-mysql \
+                --with-pdo-mysql \
+                --with-iconv \
+                --with-gd \
+                --with-curl=/usr/lib \
+                --with-config-file-path=/app/vendor/php \
+                --with-openssl \
+                --enable-fpm \
+                --with-zlib \
+                --enable-mbstring \
+                --disable-debug \
+                --disable-rpath \
+                --enable-gd-native-ttf \
+                --enable-inline-optimization \
+                --with-bz2 \
+                --enable-pcntl \
+                --enable-mbregex \
+                --with-mhash \
+                --enable-zip \
+                --with-pcre-regex \
+                --enable-libxml \
+                --with-gettext \
+                --with-jpeg-dir \
+                --with-mysqli \
+                --with-pcre-regex \
+                --with-png-dir \
+                --without-pdo-sqlite \
+                --without-sqlite3 \
+                && make install \
+                && /app/vendor/php/bin/pear config-set php_dir /app/vendor/php \
+                && yes '' | /app/vendor/php/bin/pecl install memcache \
+                && yes '' | /app/vendor/php/bin/pecl install apc-3.1.14"
+
+# upload to s3
+$basedir/aws/s3 put $S3_BUCKET php-$PHP_VERSION-with-fpm-heroku.tar.gz $tempdir/php-$PHP_VERSION-with-fpm-heroku.tar.gz

@@ -1,0 +1,115 @@
+#!/bin/bash
+# Usage: bin/compile <build-dir> <cache-dir>
+
+set -e
+set -o pipefail
+
+# START CONFIG
+
+# Support end-user configured NGINX_VERSION, PHP_VERSION, WORDPRESS_VERSION
+# and S3_BUCKET environment variables. This way, end-users can choose exactly
+# which versions to run with. Requires user-env-compile.
+
+if [ -z "$NGINX_VERSION" ]; then
+  NGINX_VERSION=1.4.1
+fi
+
+if [ -z "$PHP_VERSION" ]; then
+  PHP_VERSION=5.4.11
+fi
+
+if [ -z "$WORDPRESS_VERSION" ]; then
+  WORDPRESS_VERSION=3.5.1
+fi
+
+if [ -z "$S3_BUCKET" ]; then
+  S3_BUCKET=heroku-buildpack-wordpress
+fi
+
+# END CONFIG
+
+#
+NGINX_URL="https://s3.amazonaws.com/${S3_BUCKET}/nginx-${NGINX_VERSION}-heroku.tar.gz"
+PHP_URL="https://s3.amazonaws.com/${S3_BUCKET}/php-${PHP_VERSION}-with-fpm-heroku.tar.gz"
+WORDPRESS_URL="http://wordpress.org/wordpress-${WORDPRESS_VERSION}.tar.gz"
+#
+
+function indent() {
+  c='s/^/       /'
+  case $(uname) in
+    Darwin) sed -l "$c";;
+    *)      sed -u "$c";;
+  esac
+}
+
+BUILD_DIR=$1
+CACHE_DIR=$2
+mkdir -p $BUILD_DIR $CACHE_DIR
+
+# Nginx
+cd ${BUILD_DIR}
+if [ ! -d ./vendor/nginx ]; then
+  echo "-----> Installing Nginx v${NGINX_VERSION}"
+  mkdir -p ./vendor/nginx && cd ./vendor/nginx
+  curl --silent --max-time 60 --location $NGINX_URL | tar xz
+fi
+
+# PHP
+cd ${BUILD_DIR}
+if [ ! -d ./vendor/php ]; then
+  echo "-----> Installing PHP v${PHP_VERSION}"
+  mkdir -p ./vendor/php && cd ./vendor/php
+  curl --silent --max-time 60 --location $PHP_URL | tar xz
+fi
+
+# Wordpress
+echo "-----> Installing Wordpress v${WORDPRESS_VERSION}"
+cd ${BUILD_DIR}
+curl --silent --max-time 60 --location $WORDPRESS_URL | tar xz
+mv wordpress public
+
+echo "-----> Writing start.sh script"
+mkdir -p ${BUILD_DIR}/bin
+cd ${BUILD_DIR}
+
+# Setup
+cat >>bin/setup.sh <<EOF
+#!/usr/bin/env bash
+
+cp -rf /app/config/* /app
+
+cp /app/vendor/php/php/fpm/status.html /app/public/status.html
+cp /app/vendor/php/apc.php /app/public/apc.php
+erb /app/vendor/nginx/conf/wordpress.conf.erb > /app/vendor/nginx/conf/wordpress.conf
+chmod 755 /app/public/wp-content
+
+# Expose Heroku config vars to PHP-FPM processes
+for var in \`env | cut -f1 -d=\`; do
+  echo "env[\$var] = \\$\${var}" >> /app/vendor/php/etc/php-fpm.conf
+done
+
+touch /app/vendor/nginx/logs/access.log /app/vendor/nginx/logs/error.log /app/vendor/php/var/log/php-fpm.log
+EOF
+chmod +x bin/setup.sh
+
+# Cron job
+cat >>bin/cron.sh <<EOF
+#!/usr/bin/env bash
+
+setup.sh && cd public && php wp-cron.php
+EOF
+chmod +x bin/cron.sh
+
+# Startup
+cat >>bin/start.sh <<EOF
+#!/usr/bin/env bash
+
+echo "Starting nginx"
+setup.sh
+(tail -qF -n 0 /app/vendor/nginx/logs/*.log /app/vendor/php/var/log/*.log &)
+php-fpm
+nginx
+EOF
+chmod +x bin/start.sh
+
+echo "-----> Done with compile"
