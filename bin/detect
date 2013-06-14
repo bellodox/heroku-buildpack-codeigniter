@@ -1,8 +1,8 @@
 #!/bin/sh
 # Usage: bin/compile <build-dir>
 
-if [ -f $1/config/public/wp-config.php ]; then
-  echo "Wordpress"
+if [ -f $1/config/public/system/core/CodeIgniter.php ]; then
+  echo "CodeIgniter"
   exit 0
 else
   exit 1
